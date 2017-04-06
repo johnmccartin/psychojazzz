@@ -242,13 +242,11 @@ server.listen(app.get('port'), () => {
 io.on('connection', (socket) => {
   socket.emit('greet', { hello: 'Hey there browser!' });
   socket.on('respond', (data) => {
-    console.log(data);
   });
 
 
 
   socket.on('local-sound', (data) => {
-    console.log(data)
     socket.broadcast.emit('foreign-sound',{instrument: data.instrument, parameter1: data.param1, parameter2: data.param2, id: data.id, shapeid: data.shapeid, x: data.x, y: data.y, device_width: data.device_width, device_height: data.device_height})
   })
 

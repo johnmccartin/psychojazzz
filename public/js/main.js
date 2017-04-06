@@ -243,7 +243,7 @@ function start_instrument(name,input1,input2) {
 function stop_instrument(id) {
 
 	var instrument = $fire.sound_list[id]
-	console.log('soundid: '+id)
+	//console.log('soundid: '+id)
 	instrument.stop()
 
 	return instrument;
@@ -279,3 +279,4 @@ function undraw(shapeid) {
 Number.prototype.map = function (in_min, in_max, out_min, out_max) {
   return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
