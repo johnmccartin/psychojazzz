@@ -25,6 +25,7 @@ $(document).ready(function() {
 	var shapeid = 0
 	var canvas = $('.content').get(0)
 	var context = canvas
+	$fire.context = context
 	var rect = {}
 	var drag = false
 	var current_shape
@@ -62,18 +63,26 @@ $(document).ready(function() {
 		drag = true
 		draw(context,rect.startX,rect.startY,shapeid)
 		current_shape = shapeid
-		console.log(current_shape)
+
+		var instrument_params = {
+			instrument: $fire.selected_instrument,
+			param1: frequency_map,
+			param2: delay_feedback_map,
+			id: soundid,
+			shapeid: shapeid,
+			x: x_pos,
+			y: y_pos,
+			device_width: canvas.width,
+			device_height: canvas.height
+		}
+		console.log(instrument_params)
+		socket.emit('local-sound',instrument_params)
 
 
-		socket.emit('local-sound',{instrument: $fire.selected_instrument,param1: frequency_map,param2: delay_feedback_map,id: soundid, shapeid: shapeid})
-
-
-		//saw.play({pitch : frequency_map, delay : {feedback : delay_feedback_map}})
 
 	})
 
 	$(document).on('mouseup','.content',function(e){
-		//console.log('mouseup')
 
 		instrument.stop()
 		undraw(current_shape)
@@ -84,7 +93,6 @@ $(document).ready(function() {
 		shapeid++
 		drag = false
 
-		//saw.stop()
 
 
 
@@ -97,27 +105,29 @@ $(document).ready(function() {
 
 	  socket = io.connect(window.location.href);
 	  socket.on('greet', function (data) {
-	      //console.log(data);
 	      socket.emit('respond', { message: 'Hey there, server!' });
 	  });
 
 	  socket.on('foreign-sound', function (data) {
-	  	//console.log('foreign-sound')
-	  	//console.log(data)
+
 	  	
 	  	var id = data.id
+	  	var orig_x = data.x
+	  	var orig_y = data.y
+	  	var device_width = data.device_width
+	  	var device_height = data.device_height
+
+	  	var new_x = orig_x.map(0,device_width,0,canvas.width)
+	  	var new_y = orig_y.map(0,device_height,0,canvas.height)
+
+
 
 	  	$fire.sound_list[id] = start_instrument(data.instrument,data.parameter1,data.parameter2)
-	  	//console.log($fire.sound_list)
-
-
+	  	draw($fire.context,new_x,new_y,data.shapeid)
 
 	  })
 
 	  socket.on('foreign-sound-stop',function (data) {
-	  	//console.log('foreign-sound-stop')
-	  	//console.log(data)
-
 	  	stop_instrument(data.id)
 	  	undraw(data.shapeid)
 	  })
@@ -233,6 +243,7 @@ function start_instrument(name,input1,input2) {
 function stop_instrument(id) {
 
 	var instrument = $fire.sound_list[id]
+	console.log('soundid: '+id)
 	instrument.stop()
 
 	return instrument;
@@ -249,11 +260,9 @@ function draw(context,x,y,shapeid) {
 
 
 		var circle = document.createElement('div');
-		console.log(circle)
 		var $circle = $(circle)
-		console.log($circle)
 
-		$circle.attr('data-circle-id',shapeid).css({width: rectW,height: rectH,background: bg_color, top: y + rectH/2, left: x - rectW/2}).addClass('circle')
+		$circle.css({width: rectW,height: rectH,background: bg_color, top: y + rectH/2, left: x - rectW/2}).addClass('circle').attr('data-circle-id',shapeid)
 
 
 		context.append(circle)
