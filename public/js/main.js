@@ -2,6 +2,8 @@ var $fire = {}
 
 $(document).ready(function() {
 
+	console.log('ready')
+
 	var socket;
 	$fire.sound_list = {}
 	$fire.shape_list = {}
