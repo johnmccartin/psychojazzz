@@ -3,9 +3,9 @@ var $fire = {}
 $(document).ready(function() {
 
 	var socket;
-	$fire.sound_list = {};
+	$fire.sound_list = {}
+	$fire.shape_list = {}
 
-	//var saw = new Wad(instruments.saw.args)
 
 	var frequency_min = 27.5 //Hz of A0
 	var frequency_max = 261.63 //Hz of C8
@@ -22,38 +22,51 @@ $(document).ready(function() {
 	})
 
 	var soundid = 0
+	var shapeid = 0
 	var canvas = $('.content').get(0)
-	var context = canvas.getContext('2d')
+	var context = canvas
 	var rect = {}
 	var drag = false
+	var current_shape
 
-	function draw() {
-		console.log(rect.startX,rect.startY)
-		context.fillStyle = '#ffffff'
-		context.fillRect(rect.startX,rect.startY,40,40)
-	}
+	canvas.width = canvas.offsetWidth
+	canvas.height = canvas.offsetHeight
+
+	
+	
 
 
 	$(document).on('mousedown','.content',function(e){
 		var x_pos = e.pageX
-		var y_pos = e.pageY
+		var y_pos = e.pageY - 50
 		var winW = $('.content').width()
 		var winH = $('.content').height()
 
+		//reset canvas size
+		canvas.width = canvas.offsetWidth
+		canvas.height = canvas.offsetHeight
+
 		var frequency_map = x_pos.map(0,winW,frequency_min,frequency_max)
 		var delay_feedback_map = y_pos.map(25,winH,delay_feedback_min,delay_feedback_max)
+		
 
 		
 
 
 		instrument = start_instrument($fire.selected_instrument,frequency_map,delay_feedback_map)
 
-		socket.emit('local-sound',{instrument: $fire.selected_instrument,param1: frequency_map,param2: delay_feedback_map,id: soundid})
 
 		rect.startX = x_pos
 		rect.startY = y_pos
+		rect.id = shapeid
 		drag = true
-		draw()
+		draw(context,rect.startX,rect.startY,shapeid)
+		current_shape = shapeid
+		console.log(current_shape)
+
+
+		socket.emit('local-sound',{instrument: $fire.selected_instrument,param1: frequency_map,param2: delay_feedback_map,id: soundid, shapeid: shapeid})
+
 
 		//saw.play({pitch : frequency_map, delay : {feedback : delay_feedback_map}})
 
@@ -63,8 +76,12 @@ $(document).ready(function() {
 		//console.log('mouseup')
 
 		instrument.stop()
-		socket.emit('local-sound-stop',{id: soundid})
+		undraw(current_shape)
+		
+
+		socket.emit('local-sound-stop',{id: soundid, shapeid: shapeid})
 		soundid++
+		shapeid++
 		drag = false
 
 		//saw.stop()
@@ -91,17 +108,18 @@ $(document).ready(function() {
 	  	var id = data.id
 
 	  	$fire.sound_list[id] = start_instrument(data.instrument,data.parameter1,data.parameter2)
-	  	console.log($fire.sound_list)
+	  	//console.log($fire.sound_list)
 
 
 
 	  })
 
 	  socket.on('foreign-sound-stop',function (data) {
-	  	console.log('foreign-sound-stop')
-	  	console.log(data)
+	  	//console.log('foreign-sound-stop')
+	  	//console.log(data)
 
 	  	stop_instrument(data.id)
+	  	undraw(data.shapeid)
 	  })
 	})
 
@@ -219,6 +237,34 @@ function stop_instrument(id) {
 
 	return instrument;
 
+}
+
+
+function draw(context,x,y,shapeid) {
+
+		var rectW = 40
+		var rectH = 40
+		var bg_color = '#ffffff'
+
+
+
+		var circle = document.createElement('div');
+		console.log(circle)
+		var $circle = $(circle)
+		console.log($circle)
+
+		$circle.attr('data-circle-id',shapeid).css({width: rectW,height: rectH,background: bg_color, top: y + rectH/2, left: x - rectW/2}).addClass('circle')
+
+
+		context.append(circle)
+
+
+
+
+}
+
+function undraw(shapeid) {
+	$(document).find('.circle[data-circle-id="'+shapeid+'"]').remove()
 }
 
 Number.prototype.map = function (in_min, in_max, out_min, out_max) {

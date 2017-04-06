@@ -249,12 +249,12 @@ io.on('connection', (socket) => {
 
   socket.on('local-sound', (data) => {
     console.log(data)
-    socket.broadcast.emit('foreign-sound',{instrument: data.instrument, parameter1: data.param1, parameter2: data.param2, id: data.id})
+    socket.broadcast.emit('foreign-sound',{instrument: data.instrument, parameter1: data.param1, parameter2: data.param2, id: data.id, shapeid: data.shapeid})
   })
 
   socket.on('local-sound-stop', (data) => {
     console.log(data)
-    socket.broadcast.emit('foreign-sound-stop',{id: data.id})
+    socket.broadcast.emit('foreign-sound-stop',{id: data.id, shapeid: data.shapeid})
   })
 
 
