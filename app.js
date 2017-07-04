@@ -19,6 +19,9 @@ const expressValidator = require('express-validator');
 //const expressStatusMonitor = require('express-status-monitor');
 const sass = require('node-sass-middleware');
 const multer = require('multer');
+const tonal = require('tonal')
+
+console.log(tonal.scale.notes('C bebop'))
 
 
 
@@ -242,16 +245,18 @@ server.listen(app.get('port'), () => {
 io.on('connection', (socket) => {
   socket.emit('greet', { hello: 'Hey there browser!' });
   socket.on('respond', (data) => {
+    console.log(data)
   });
 
 
 
   socket.on('local-sound', (data) => {
+    console.log('local-sound')
     socket.broadcast.emit('foreign-sound',{instrument: data.instrument, parameter1: data.param1, parameter2: data.param2, id: data.id, shapeid: data.shapeid, x: data.x, y: data.y, device_width: data.device_width, device_height: data.device_height})
   })
 
   socket.on('local-sound-stop', (data) => {
-    console.log(data)
+    console.log('local-sound-stop')
     socket.broadcast.emit('foreign-sound-stop',{id: data.id, shapeid: data.shapeid})
   })
 

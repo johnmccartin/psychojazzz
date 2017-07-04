@@ -1,12 +1,18 @@
 var $fire = {}
+var $ = require('jquery')
+var tonal = require('tonal')
+var Wad = require('web-audio-daw')
+var socket
+
+
 
 $(document).ready(function() {
 
-	console.log('ready')
 
-	var socket;
 	$fire.sound_list = {}
 	$fire.shape_list = {}
+
+
 
 
 	var frequency_min = 27.5 //Hz of A0
@@ -34,6 +40,11 @@ $(document).ready(function() {
 
 	canvas.width = canvas.offsetWidth
 	canvas.height = canvas.offsetHeight
+
+
+
+
+	var bebop = tonal.scale.notes('C bebop')
 
 	
 	
@@ -77,7 +88,7 @@ $(document).ready(function() {
 			device_width: canvas.width,
 			device_height: canvas.height
 		}
-		console.log(instrument_params)
+		
 		socket.emit('local-sound',instrument_params)
 
 
@@ -103,15 +114,16 @@ $(document).ready(function() {
 
 	$(window).on('load',function(){
 
+	  socket = io.connect(window.location.href)
 	  var i = 0;
 
-	  socket = io.connect(window.location.href);
+	  
 	  socket.on('greet', function (data) {
 	      socket.emit('respond', { message: 'Hey there, server!' });
 	  });
 
 	  socket.on('foreign-sound', function (data) {
-
+	  	console.log('ay foreign-sound')
 	  	
 	  	var id = data.id
 	  	var orig_x = data.x
@@ -245,7 +257,6 @@ function start_instrument(name,input1,input2) {
 function stop_instrument(id) {
 
 	var instrument = $fire.sound_list[id]
-	//console.log('soundid: '+id)
 	instrument.stop()
 
 	return instrument;
