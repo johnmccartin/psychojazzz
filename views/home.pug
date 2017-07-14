@@ -1,7 +1,10 @@
 extends layout
 
 block content
-  .content
-  select(id="instrument-select" name="instrument-select")
-    option(value="saw" selected) Saw
-    option(value="sine") Sine
+	.content
+	select(id="instrument-select" name="instrument-select")
+		option(value="saw" selected) Saw
+		option(value="sine") Sine
+	.controls
+		label(for="slale-lock") Scale Lock
+		input(type="checkbox" name="scale-lock" id="scale-lock" )

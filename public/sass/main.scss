@@ -94,3 +94,9 @@ div.circle {
     -moz-box-sizing: border-box;  
     position: absolute;  
   }
+
+.controls {
+  position: fixed;
+  bottom: 55px;
+  left: 0;
+}

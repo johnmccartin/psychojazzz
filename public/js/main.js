@@ -1,56 +1,81 @@
-var $fire = {}
-var $ = require('jquery')
-var tonal = require('tonal')
-var Wad = require('web-audio-daw')
-var socket
+var $fire = {}								// our global namespace
+var $ = require('jquery')					// our js wrapper
+var tonal = require('tonal')				// music theory fxns
+var Wad = require('web-audio-daw')			// audio generation
+var io = require('socket.io-client')		// passing data back and forth
+var socket									// globalize socket variable
+
+var canvas, context, rect = {}, drage = false, current_shape
 
 
 
 $(document).ready(function() {
+	//var socket = io();
+	//socket = io.connect(window.location.href)
 
-
+	// while we can handle audio and canvas objects made locally without logging them,
+	// we need to keep track of foreign audio and canvas objects, so that we can stop them later
+	// these objects will hold lists of foreign sounds and shapes marked by ids generated abroad
 	$fire.sound_list = {}
 	$fire.shape_list = {}
 
+	// initialize the ids to send to foreign machines for them to store
+	// THIS IS A FUCKED UP SYSTEM. WHAT IF THERE ARE MORE THAN TWO PLAYERS?
+	// THE TWO FOREIGN PLAYERS WILL SEND IDS THAT ARE IDENTICAL
+	// UPDATE TO USE NPM MODULE 'random-id'
+	var soundid = 0
+	var shapeid = 0
+
+	// default scale_lock to false
+	// checking will change this var globally
+	$fire.scale_lock = true
+
+	// load scale for use in scale locking
+	// this will need to be programmable and pulled from the room object
+	var bebop = tonal.scale.notes('C bebop')
+	var pentatonic = tonal.scale.notes('C pentatonic')
 
 
-
+	// temporarily we'll  set the min and max frequencies that we'll map from X
+	// this will need to be programmable and pulled from the instrument object
 	var frequency_min = 27.5 //Hz of A0
 	var frequency_max = 261.63 //Hz of C8
 
+	$fire.frequency_min = frequency_min
+	$fire.frequency_max = frequency_max
+
+	// temporarily we'll  set the min and max frequencies that we'll map from Y
+	// this will need to be programmable and pulled from the instrument object
 	var delay_feedback_min = 1
 	var delay_feedback_max = 0
 
+	// initialize the instrument selection from the room default
 	$fire.selected_instrument = $('#instrument-select').val()
 
-	var instrument;
-
+	// change the instrument selection with the select element
 	$('#instrument-select').on('change',function(){
 		$fire.selected_instrument = $(this).val()
 	})
 
-	var soundid = 0
-	var shapeid = 0
-	var canvas = $('.content').get(0)
-	var context = canvas
-	$fire.context = context
-	var rect = {}
-	var drag = false
-	var current_shape
 
+
+	// prepare the DOM to read XY values and to start drawing
+	// NB we're not actually using an HTML canvas, but the DOM to draw
+	canvas = $('.content').get(0)
+	context = canvas
+	$fire.context = context
+	rect = {}
+	drag = false
+	current_shape
 	canvas.width = canvas.offsetWidth
 	canvas.height = canvas.offsetHeight
 
 
-
-
-	var bebop = tonal.scale.notes('C bebop')
-
-	
-	
-
+	var local_instrument;
 
 	$(document).on('mousedown','.content',function(e){
+
+		// Read X and Y
 		var x_pos = e.pageX
 		var y_pos = e.pageY - 50
 		var winW = $('.content').width()
@@ -60,24 +85,36 @@ $(document).ready(function() {
 		canvas.width = canvas.offsetWidth
 		canvas.height = canvas.offsetHeight
 
+		// map X and Y to parameter scales (pulling mins and maxes from above)
+		// this will need to be abstracted to account for other paramters
 		var frequency_map = x_pos.map(0,winW,frequency_min,frequency_max)
 		var delay_feedback_map = y_pos.map(25,winH,delay_feedback_min,delay_feedback_max)
-		
 
 		
+		// if scale lock is turned on, shift the mapped X (frequency) to the nearest note on the room's scale
+		if ( $fire.scale_lock == true ) {
+			frequency_map = nearest_freq(frequency_map,scale_to_freq_list(pentatonic))
+		}
 
 
-		instrument = start_instrument($fire.selected_instrument,frequency_map,delay_feedback_map)
+		// instantiate a WAD sound into a variable and begin playing. you can turn it off later by using this var
+		local_instrument = start_instrument($fire.selected_instrument,frequency_map,delay_feedback_map)
 
-
+		// instantiate 
 		rect.startX = x_pos
 		rect.startY = y_pos
 		rect.id = shapeid
-		drag = true
+		
 		draw(context,rect.startX,rect.startY,shapeid)
 		current_shape = shapeid
 
-		var instrument_params = {
+
+		// set dragability to true
+		drag = true 
+
+
+		// compile new sound/shape params into one object to send abroad
+		var instrument_params_to_send = {
 			instrument: $fire.selected_instrument,
 			param1: frequency_map,
 			param2: delay_feedback_map,
@@ -89,7 +126,8 @@ $(document).ready(function() {
 			device_height: canvas.height
 		}
 		
-		socket.emit('local-sound',instrument_params)
+		// send new sound/shape abroad
+		socket.emit('local-sound',instrument_params_to_send)
 
 
 
@@ -97,13 +135,18 @@ $(document).ready(function() {
 
 	$(document).on('mouseup','.content',function(e){
 
-		instrument.stop()
+		local_instrument.stop()
 		undraw(current_shape)
 		
-
+		// tell the 
 		socket.emit('local-sound-stop',{id: soundid, shapeid: shapeid})
+
+
+		//increment 
 		soundid++
 		shapeid++
+
+		// set dragability back to false
 		drag = false
 
 
@@ -112,10 +155,19 @@ $(document).ready(function() {
 	})
 
 
-	$(window).on('load',function(){
+	
+	
 
+
+}) //ready
+
+
+
+$(window).on('load',function(){
+	  console.log('loaded')
 	  socket = io.connect(window.location.href)
 	  var i = 0;
+
 
 	  
 	  socket.on('greet', function (data) {
@@ -145,14 +197,8 @@ $(document).ready(function() {
 	  	stop_instrument(data.id)
 	  	undraw(data.shapeid)
 	  })
-	})
 
-
-})
-
-
-
-
+}) //loaded
 
 
 
@@ -242,6 +288,13 @@ var instruments = {
 
 }
 
+
+
+
+
+
+
+
 function start_instrument(name,input1,input2) {
 
 	var instrument = new Wad(instruments[name].args)
@@ -260,7 +313,7 @@ function stop_instrument(id) {
 	instrument.stop()
 
 	return instrument;
-
+	
 }
 
 
@@ -280,9 +333,6 @@ function draw(context,x,y,shapeid) {
 
 		context.append(circle)
 
-
-
-
 }
 
 function undraw(shapeid) {
@@ -292,4 +342,59 @@ function undraw(shapeid) {
 Number.prototype.map = function (in_min, in_max, out_min, out_max) {
   return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
+
+
+function scale_to_freq_list(scale_array) {
+	var scale_array_new = []
+	var freq_array = []
+
+
+
+
+
+
+	for (var i=0; i < scale_array.length; i++) {
+
+
+
+		for ( var octave_iter=0; octave_iter < 8; octave_iter++) {
+			var freq = tonal.note.freq(scale_array[i]+octave_iter.toString())
+			freq_array.push(freq)
+		}
+
+
+
+	}
+	
+	freq_array.sort()
+	return freq_array
+
+}
+
+function nearest_freq(freq,scale_array){
+
+	
+	var closest_note = scale_array[0]
+	var diff = Math.abs(freq - closest_note)
+
+	for (i=0; i<scale_array.length; i++) {
+
+		var new_diff = Math.abs(freq - scale_array[i])
+		
+		if ( new_diff < diff ) {
+			diff = new_diff
+			closest_note = scale_array[i]
+		}
+		
+	}
+	//console.log(closest_note)
+
+	return closest_note
+
+}
+
+
+
+
 
