@@ -1,0 +1,61 @@
+extends layout
+
+mixin number_parameter(name,slug,parent,defaults)
+	.parameter.number-parameter(data-parameter-name=slug,data-parent-module=parent)
+		span= name
+		input(type="checkbox").is-variable
+		input(type="number",size="5",value=defaults).parameter-value
+
+mixin select_parameter(name,slug,parent,defaults, ...options)
+	.parameter.select-parameter(data-parameter-name=slug,data-parent-module=parent)
+		span= name
+		select.parameter-value
+			each parameter_option in options
+				if parameter_option == defaults
+					option(selected)= parameter_option
+				else
+					option= parameter_option
+
+block content
+	.builder-wrap
+		.col-md-8.instrument-builder
+			ul.modules-holder
+				li.module.module--generator 
+					span.b Generator
+					+select_parameter('Source ','source','generator','triangle','sine','sawtooth','triangle','square')
+
+				li.module.module--envelope 
+					span.b Envelope
+					+number_parameter('Attack ','attack','env',0.0)
+					+number_parameter('Sustain ','sustain','env',0.0)
+					+number_parameter('Decay ','decay','env',0.0)
+					+number_parameter('Release ','release','env',0.0)
+
+				li.module.module--filter
+					span.b Filter
+					+select_parameter('Type ','type','filter','lowpass','lowpass','highpass','bandpass','lowshelf','highshelf','peaking','notch','allpass')
+					+number_parameter('Frequency ','frequency','filter',600)
+					+number_parameter('Q','q','filter',1)
+
+				li.module.module--reverb
+					span.b Reverb
+					+number_parameter('Wet ','wet','reverb',0)
+
+				li.module.module--delay
+					span.b Delay
+					+number_parameter('Time ','delayTime','delay',0)
+					+number_parameter('Wet ','wet','delay',0)
+					+number_parameter('Feedback ','feedback','delay',0)
+
+			button.btn-primary.pull-right.instrument-save Save
+
+
+		.col-md-4.instrument-tester
+
+
+
+
+
+
+
+			

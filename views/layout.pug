@@ -7,10 +7,10 @@ html
     meta(name='theme-color' content='#4DA5F4')
     meta(name='csrf-token', content=_csrf)
     title #{title} - Pyschojezz
-    link(rel='shortcut icon', href='/favicon.png')
+    link(rel='shortcut icon', href='/favicon.ico')
     link(rel='stylesheet', href='/css/main.css')
 
-  body
+  body(class!=slug)
     include partials/header
     
     .wrapper

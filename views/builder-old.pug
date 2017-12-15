@@ -1,0 +1,39 @@
+block content-old
+	.builder-wrap
+		.col-md-8.instrument-builder
+
+			h2 Active
+			.modules-holder.modules--active.dropzone
+				.module.module--generator.draggable
+					h4 Generator
+					+select_parameter('Source','source','generator','triangle','sine','sawtooth','triangle','square')
+
+			h2 Inactive
+			.modules-holder.modules--inactive.dropzone
+				
+				.module.module--envelope.draggable
+					h4 Envelope
+
+					+number_parameter('Attack','attack','env',0.0)
+					+number_parameter('Sustain','sustain','env',0.0)
+					+number_parameter('Decay','decay','env',0.0)
+					+number_parameter('Release','release','env',0.0)
+
+				.module.module--filter.draggable
+					h4 Filter
+					
+					+select_parameter('Type','type','filter','lowpass','lowpass','highpass','bandpass','lowshelf','highshelf','peaking','notch','allpass')
+					+number_parameter('Frequency','frequency','filter',600)
+					+number_parameter('Q','q','filter',1)
+
+
+
+
+
+				.module.module--delay.draggable
+					h4 Delay
+			
+			
+
+	
+		.col-md-4.instrument-tester

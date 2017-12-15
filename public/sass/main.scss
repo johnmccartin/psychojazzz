@@ -14,7 +14,11 @@ html {
 }
 
 body {
-  padding-top: 60px;
+  padding-top: 50px;
+}
+
+.wrapper {
+  height: calc(100vh - 50px);
 }
 
 footer {
@@ -100,3 +104,102 @@ div.circle {
   bottom: 55px;
   left: 0;
 }
+
+
+
+
+
+// Builder
+// -------------------------
+
+.builder {
+  .wrapper {
+    overflow: hidden;
+
+
+    .builder-wrap {
+
+      box-sizing: border-box;
+      height: 100%;
+      overflow: hidden;;
+
+      * {
+        box-sizing: border-box;
+      }
+
+      ul {
+            list-style: none;
+          }
+
+      .instrument-builder {
+       
+        overflow: auto;
+        height: 100%;
+
+
+        .modules-holder {
+          
+          border: 4px dashed orange;
+          margin: 2em;
+          overflow: auto;
+          padding-bottom: 2em;
+
+
+
+         
+        }
+
+
+
+        .module {
+          background: white;
+          //border-bottom: 2px solid purple;
+          width: 80%;
+          margin-top: 2em;
+          //padding-bottom: 2em;
+          //float: left;
+
+          .parameter {
+            input {
+              margin-right: .5em;
+            }
+            
+          }
+        }
+
+
+
+
+      }
+
+      .instrument-tester {
+        height: 100%;
+        background: orange;
+      }
+
+      .draggable {
+
+      -webkit-transform: translate(0px, 0px);
+              transform: translate(0px, 0px);
+    }
+
+    }
+
+
+
+
+
+
+
+  }
+}
+
+.b {
+  font-weight: bold;
+}
+
+
+
+
+
+

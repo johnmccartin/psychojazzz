@@ -1,158 +1,173 @@
 var $fire = {}								// our global namespace
 var $ = require('jquery')					// our js wrapper
+var interact = require('interactjs')
 var tonal = require('tonal')				// music theory fxns
 var Wad = require('web-audio-daw')			// audio generation
 var io = require('socket.io-client')		// passing data back and forth
 var socket									// globalize socket variable
 
-var canvas, context, rect = {}, drage = false, current_shape
+var canvas, context, rect = {}, drag = false, current_shape
+
 
 
 
 $(document).ready(function() {
-	//var socket = io();
-	//socket = io.connect(window.location.href)
-
-	// while we can handle audio and canvas objects made locally without logging them,
-	// we need to keep track of foreign audio and canvas objects, so that we can stop them later
-	// these objects will hold lists of foreign sounds and shapes marked by ids generated abroad
-	$fire.sound_list = {}
-	$fire.shape_list = {}
-
-	// initialize the ids to send to foreign machines for them to store
-	// THIS IS A FUCKED UP SYSTEM. WHAT IF THERE ARE MORE THAN TWO PLAYERS?
-	// THE TWO FOREIGN PLAYERS WILL SEND IDS THAT ARE IDENTICAL
-	// UPDATE TO USE NPM MODULE 'random-id'
-	var soundid = 0
-	var shapeid = 0
-
-	// default scale_lock to false
-	// checking will change this var globally
-	$fire.scale_lock = true
-
-	// load scale for use in scale locking
-	// this will need to be programmable and pulled from the room object
-	var bebop = tonal.scale.notes('C bebop')
-	var pentatonic = tonal.scale.notes('C pentatonic')
+	var $b = $('body')
+	var $xo = 'xy'
 
 
-	// temporarily we'll  set the min and max frequencies that we'll map from X
-	// this will need to be programmable and pulled from the instrument object
-	var frequency_min = 27.5 //Hz of A0
-	var frequency_max = 261.63 //Hz of C8
+	if($b.hasClass('home')) {
+		watch_scale_lock() //watch if user checks or unchecks the scale lock
 
-	$fire.frequency_min = frequency_min
-	$fire.frequency_max = frequency_max
+		// while we can handle audio and canvas objects made locally without logging them,
+		// we need to keep track of foreign audio and canvas objects, so that we can stop them later
+		// these objects will hold lists of foreign sounds and shapes marked by ids generated abroad
+		$fire.sound_list = {}
+		$fire.shape_list = {}
 
-	// temporarily we'll  set the min and max frequencies that we'll map from Y
-	// this will need to be programmable and pulled from the instrument object
-	var delay_feedback_min = 1
-	var delay_feedback_max = 0
+		// initialize the ids to send to foreign machines for them to store
+		// THIS IS A FUCKED UP SYSTEM. WHAT IF THERE ARE MORE THAN TWO PLAYERS?
+		// THE TWO FOREIGN PLAYERS WILL SEND IDS THAT ARE IDENTICAL
+		// UPDATE TO USE NPM MODULE 'random-id'
+		var soundid = 0
+		var shapeid = 0
 
-	// initialize the instrument selection from the room default
-	$fire.selected_instrument = $('#instrument-select').val()
+		// default scale_lock to false
+		// checking will change this var globally
+		$fire.scale_lock = false
 
-	// change the instrument selection with the select element
-	$('#instrument-select').on('change',function(){
-		$fire.selected_instrument = $(this).val()
-	})
-
-
-
-	// prepare the DOM to read XY values and to start drawing
-	// NB we're not actually using an HTML canvas, but the DOM to draw
-	canvas = $('.content').get(0)
-	context = canvas
-	$fire.context = context
-	rect = {}
-	drag = false
-	current_shape
-	canvas.width = canvas.offsetWidth
-	canvas.height = canvas.offsetHeight
+		// load scale for use in scale locking
+		// this will need to be programmable and pulled from the room object
+		var bebop = tonal.scale.notes('C bebop')
+		var pentatonic = tonal.scale.notes('C pentatonic')
 
 
-	var local_instrument;
+		// temporarily we'll  set the min and max frequencies that we'll map from X
+		// this will need to be programmable and pulled from the instrument object
+		var frequency_min = 27.5 //Hz of A0
+		var frequency_max = 261.63 //Hz of C8
 
-	$(document).on('mousedown','.content',function(e){
+		$fire.frequency_min = frequency_min
+		$fire.frequency_max = frequency_max
 
-		// Read X and Y
-		var x_pos = e.pageX
-		var y_pos = e.pageY - 50
-		var winW = $('.content').width()
-		var winH = $('.content').height()
+		// temporarily we'll  set the min and max frequencies that we'll map from Y
+		// this will need to be programmable and pulled from the instrument object
+		var delay_feedback_min = 1
+		var delay_feedback_max = 0
 
-		//reset canvas size
+		// initialize the instrument selection from the room default
+		$fire.selected_instrument = $('#instrument-select').val()
+
+		// change the instrument selection with the select element
+		$('#instrument-select').on('change',function(){
+			$fire.selected_instrument = $(this).val()
+		})
+
+
+
+		// prepare the DOM to read XY values and to start drawing
+		// NB we're not actually using an HTML canvas, but the DOM to draw
+		canvas = $('.content').get(0)
+		context = canvas
+		$fire.context = context
+		rect = {}
+		drag = false
+		current_shape
 		canvas.width = canvas.offsetWidth
 		canvas.height = canvas.offsetHeight
 
-		// map X and Y to parameter scales (pulling mins and maxes from above)
-		// this will need to be abstracted to account for other paramters
-		var frequency_map = x_pos.map(0,winW,frequency_min,frequency_max)
-		var delay_feedback_map = y_pos.map(25,winH,delay_feedback_min,delay_feedback_max)
+
+		var local_instrument;
+
+		$(document).on('mousedown','.content',function(e){
+
+			// Read X and Y
+			var x_pos = e.pageX
+			var y_pos = e.pageY - 50
+			var winW = $('.content').width()
+			var winH = $('.content').height()
+
+			//reset canvas size
+			canvas.width = canvas.offsetWidth
+			canvas.height = canvas.offsetHeight
+
+			// map X and Y to parameter scales (pulling mins and maxes from above)
+			// this will need to be abstracted to account for other paramters
+			var frequency_map = x_pos.map(0,winW,frequency_min,frequency_max)
+			var delay_feedback_map = y_pos.map(25,winH,delay_feedback_min,delay_feedback_max)
+
+			
+			// if scale lock is turned on, shift the mapped X (frequency) to the nearest note on the room's scale
+			if ( $fire.scale_lock == true ) {
+				frequency_map = nearest_freq(frequency_map,scale_to_freq_list(pentatonic))
+			}
+
+
+			// instantiate a WAD sound into a variable and begin playing. you can turn it off later by using this var
+			local_instrument = start_instrument($fire.selected_instrument,frequency_map,delay_feedback_map)
+
+			// instantiate 
+			rect.startX = x_pos
+			rect.startY = y_pos
+			rect.id = shapeid
+			
+			draw(context,rect.startX,rect.startY,shapeid)
+			current_shape = shapeid
+
+
+			// set dragability to true
+			drag = true 
+
+
+			// compile new sound/shape params into one object to send abroad
+			var instrument_params_to_send = {
+				instrument: $fire.selected_instrument,
+				param1: frequency_map,
+				param2: delay_feedback_map,
+				id: soundid,
+				shapeid: shapeid,
+				x: x_pos,
+				y: y_pos,
+				device_width: canvas.width,
+				device_height: canvas.height
+			}
+			
+			// send new sound/shape abroad
+			socket.emit('local-sound',instrument_params_to_send)
+
+
+
+		})
+
+		$(document).on('mouseup','.content',function(e){
+
+			// stop the sound and remove the shape locally
+			local_instrument.stop()
+			undraw(current_shape)
+			
+			// send info on the stopped sound and shape abroad
+			socket.emit('local-sound-stop',{id: soundid, shapeid: shapeid})
+
+
+			// increment sound and shape IDs
+			// TO BE CHANGED WHEN UNIQUE IDs are introduced
+			soundid++
+			shapeid++
+
+			// set dragability back to false
+			drag = false
+
+
+
+
+		})
+	} else if ($b.hasClass('builder')) {
+		rebuilder();
+
 
 		
-		// if scale lock is turned on, shift the mapped X (frequency) to the nearest note on the room's scale
-		if ( $fire.scale_lock == true ) {
-			frequency_map = nearest_freq(frequency_map,scale_to_freq_list(pentatonic))
-		}
 
-
-		// instantiate a WAD sound into a variable and begin playing. you can turn it off later by using this var
-		local_instrument = start_instrument($fire.selected_instrument,frequency_map,delay_feedback_map)
-
-		// instantiate 
-		rect.startX = x_pos
-		rect.startY = y_pos
-		rect.id = shapeid
-		
-		draw(context,rect.startX,rect.startY,shapeid)
-		current_shape = shapeid
-
-
-		// set dragability to true
-		drag = true 
-
-
-		// compile new sound/shape params into one object to send abroad
-		var instrument_params_to_send = {
-			instrument: $fire.selected_instrument,
-			param1: frequency_map,
-			param2: delay_feedback_map,
-			id: soundid,
-			shapeid: shapeid,
-			x: x_pos,
-			y: y_pos,
-			device_width: canvas.width,
-			device_height: canvas.height
-		}
-		
-		// send new sound/shape abroad
-		socket.emit('local-sound',instrument_params_to_send)
-
-
-
-	})
-
-	$(document).on('mouseup','.content',function(e){
-
-		local_instrument.stop()
-		undraw(current_shape)
-		
-		// tell the 
-		socket.emit('local-sound-stop',{id: soundid, shapeid: shapeid})
-
-
-		//increment 
-		soundid++
-		shapeid++
-
-		// set dragability back to false
-		drag = false
-
-
-
-
-	})
+	}
 
 
 	
@@ -394,7 +409,241 @@ function nearest_freq(freq,scale_array){
 
 }
 
+function watch_scale_lock() {
+	$(document).on('change','#scale-lock',function(){
 
+		if(this.checked) {
+			$fire.scale_lock = true
+		} else {
+			$fire.scale_lock = false
+		}
+
+	})
+}
+
+function make_draggable() {
+	
+	interact('.draggable')
+  .draggable({
+    inertia: true,
+    autoScroll: true,
+    restriction: {},
+    onmove: dragMoveListener,
+    onend: function (event) {}
+  });
+
+  function dragMoveListener (event) {
+    var target = event.target,
+        // keep the dragged position in the data-x/data-y attributes
+        x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
+        y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+    // translate the element
+    target.style.webkitTransform =
+    target.style.transform =
+      'translate(' + x + 'px, ' + y + 'px)';
+
+    // update the posiion attributes
+    target.setAttribute('data-x', x);
+    target.setAttribute('data-y', y);
+  }
+
+  // this is used later in the resizing and gesture demos
+  window.dragMoveListener = dragMoveListener;
+}
+
+function make_droppable() {
+
+	interact('.dropzone').dropzone({
+	  accept: '.module',
+	  overlap: 0.1,
+
+	  // listen for drop related events:
+
+	  ondropactivate: function (event) {
+	    // add active dropzone feedback
+	    event.target.classList.add('drop-active');
+	  },
+	  ondragenter: function (event) {
+	    var draggableElement = event.relatedTarget,
+	        dropzoneElement = event.target;
+
+	    // feedback the possibility of a drop
+	    
+	  },
+	  ondragleave: function (event) {
+	    // remove the drop feedback style
+	    
+	  },
+	  ondrop: function (event) {
+	    //event.relatedTarget.textContent = 'Dropped';
+	  
+	  },
+	  ondropdeactivate: function (event) {
+	    // remove active dropzone feedback
+	    
+	  }
+	});
+}
+
+
+
+
+
+
+function log(message) {
+	console.log(message)
+}
+
+function rebuilder(){
+	console.log('builder')
+		make_draggable()
+		make_droppable()
+
+		var modules_active = ['generator']
+
+		//set up all potential parameters, define defaults and initialize actives
+		var parameters = {}
+		parameters.generator = {
+			source : { default : 'square', active : null },
+			volume : { default : 1.0, active : null },
+			pitch : { default : 'A2', active : null },
+			detune : { default : 0, active : null },
+			panning : { default : 0, active : null }
+		}
+
+		parameters.env = {
+				attack		: { default : 0, active : null },
+				decay		: { default : 0.0, active : null },
+				sustain 	: { default : 1.0, active : null },
+				hold		: { default : 0.25, active : null },
+				release 	: { default : 1, active : null },
+		}
+		parameters.filter = {
+				type  		: { default : 'lowpass', active : null },
+				frequency 	: { default : 800, active : null },
+				q			: { default : 1, active : null },
+				env			: {
+					frequency	: { default : 800, active : null },
+					attack		: { default : 0.5, active : null }
+				}
+
+		}
+		parameters.delay = {
+			delayTime		: { default : 0, active : null },
+			wet				: { default : 0, active : null },
+			feedback		: { default : 0, active : null }
+		}
+
+
+		//set up all actives as defaults
+		parameters.generator.source.active = parameters.generator.source.default;
+		parameters.generator.volume.active = parameters.generator.volume.default;
+		parameters.generator.pitch.active = parameters.generator.pitch.default;
+		parameters.generator.detune.active = parameters.generator.detune.default;
+		parameters.generator.panning.active = parameters.generator.panning.default;
+
+		parameters.env.attack.active = parameters.env.attack.default;
+		parameters.env.decay.active = parameters.env.decay.default;
+		parameters.env.sustain.active = parameters.env.sustain.default;
+		parameters.env.hold.active = parameters.env.hold.default;
+		parameters.env.release.active = parameters.env.release.default;
+
+		parameters.filter.type.active = parameters.filter.type.default;
+		parameters.filter.frequency.active = parameters.filter.frequency.default;
+		parameters.filter.q.active = parameters.filter.q.default;
+		parameters.filter.env.frequency.active = parameters.filter.env.frequency.default;
+		parameters.filter.env.attack.active = parameters.filter.env.attack.default;
+
+		parameters.delay.delayTime.active = parameters.delay.delayTime.default;
+		parameters.delay.wet.active = parameters.delay.wet.default;
+		parameters.delay.feedback.active = parameters.delay.feedback.default;
+
+		$(document).on('change','.parameter-value',function(e) {
+
+			var $t = $(this);
+			var $parameter = $t.parents('.parameter')
+			var module = $parameter.attr('data-parent-module')
+			var parameter_name = $parameter.attr('data-parameter-name')
+
+			var value = $t.val()
+			if($parameter.hasClass('number-parameter')) {
+				value = parseFloat(value)
+			}
+
+
+			if( module == 'filter' && $parameter == 'env' ) {
+
+				
+			} else {
+
+				parameters[module][parameter_name]['active'] = value
+
+			}
+
+			console.log(parameters)
+
+		})
+
+
+
+		$(document).on('click','.instrument-tester', function() {
+			$fake_variable_polywad = null
+			if ($fake_variable_polywad == true) {
+
+				/*
+				voice_count = 0
+				for each voice in voices :
+					set up args as wad args
+
+					
+					var polyVoices[voice_count] = new Wad(args)
+				
+				var myPoly = new Wad.Poly()
+
+				for i = 0; i < voice_count.length; i++ :
+					polyWad.add(polyVoices[i])
+					
+
+				*/
+
+			} else {
+				var test_instrument_args = {
+				    source  : parameters.generator.source.active,
+				    volume  : parameters.generator.volume.active,   
+				    pitch   : parameters.generator.pitch.active,  
+				    detune  : parameters.generator.detune.active,    
+				    panning : parameters.generator.panning.active,
+
+				    env     : {      
+				        attack  : parameters.env.attack.active,  
+				        decay   : parameters.env.decay.active,  
+				        sustain : parameters.env.sustain.active,  
+				        hold : parameters.env.hold.active,
+				        release : parameters.env.release.active     
+				    },
+				    filter  : {
+				        type      : parameters.filter.type.active, 
+				        frequency : parameters.filter.frequency.active,      
+				        q         : parameters.filter.q.active,         
+				        env       : {         
+				            frequency : parameters.filter.env.frequency.active, 
+				            attack    : parameters.filter.env.attack.active  
+				        }
+				    },
+				    delay   : {
+				        delayTime : parameters.delay.delayTime.active,  
+				        wet       : parameters.delay.wet.active, 
+				        feedback  : parameters.delay.feedback.active, 
+				    }    
+				}
+
+				var instrument = new Wad(test_instrument_args)
+				instrument.play()
+			}
+		})
+
+}
 
 
 
